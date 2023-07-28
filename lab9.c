@@ -1,24 +1,39 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 // RecordType
 struct RecordType
 {
-	int		id;
-	char	name;
-	int		order; 
+    int id;
+    char name;
+    int order;
 };
 
-// Fill out this structure
+// Node for chaining
+struct Node
+{
+    struct RecordType data;
+    struct Node *next;
+};
+
+// HashType with array of pointers to Node
 struct HashType
 {
-
+    struct Node **array;
+    int size;
 };
 
 // Compute the hash function
-int hash(int x)
+int hash(struct RecordType data, int size)
 {
-
+    // Combine the fields to create a unique hash
+    unsigned int hashValue = 599; // A prime number as an initial value
+    hashValue = hashValue * 17 + data.id;
+    hashValue = hashValue * 17 + data.name;
+    hashValue = hashValue * 17 + data.order;
+    return hashValue % size;
 }
+
 
 // parses input file to an integer array
 int parseData(char* inputFileName, struct RecordType** ppData)
@@ -35,11 +50,6 @@ int parseData(char* inputFileName, struct RecordType** ppData)
 		fscanf(inFile, "%d\n", &dataSz);
 		*ppData = (struct RecordType*) malloc(sizeof(struct RecordType) * dataSz);
 		// Implement parse data block
-		if (*ppData == NULL)
-		{
-			printf("Cannot allocate memory\n");
-			exit(-1);
-		}
 		for (i = 0; i < dataSz; ++i)
 		{
 			pRecord = *ppData + i;
@@ -73,22 +83,92 @@ void printRecords(struct RecordType pData[], int dataSz)
 // skip the indices which are free
 // the output will be in the format:
 // index x -> id, name, order -> id, name, order ....
-void displayRecordsInHash(struct HashType *pHashArray, int hashSz)
+// display records in the hash structure
+void displayRecordsInHash(struct HashType *pHashArray)
 {
-	int i;
+    int i;
+    for (i = 0; i < pHashArray->size; ++i)
+    {
+        if (pHashArray->array[i] == NULL)
+            continue;
 
-	for (i=0;i<hashSz;++i)
-	{
-		// if index is occupied with any records, print all
-	}
+        printf("Index %d:", i);
+        struct Node *current = pHashArray->array[i];
+        while (current != NULL)
+        {
+            printf(" -> %d, %c, %d", current->data.id, current->data.name, current->data.order);
+            current = current->next;
+        }
+        printf("\n");
+    }
+}
+
+void insert(struct HashType *hashTable, struct RecordType data)
+{
+    int index = hash(data, hashTable->size);
+
+    // Check if there's an existing entry at the index
+    struct Node *current = hashTable->array[index];
+    while (current != NULL)
+    {
+        if (current->data.id == data.id)
+        {
+            // Update the existing entry and return
+            current->data = data;
+            return;
+        }
+        current = current->next;
+    }
+
+    // Create a new node for the data
+    struct Node *newNode = (struct Node *)malloc(sizeof(struct Node));
+
+    newNode->data = data;
+    newNode->next = hashTable->array[index];
+    hashTable->array[index] = newNode;
 }
 
 int main(void)
 {
-	struct RecordType *pRecords;
-	int recordSz = 0;
+    struct RecordType *pRecords;
+    int recordSz = 0;
 
-	recordSz = parseData("input.txt", &pRecords);
-	printRecords(pRecords, recordSz);
-	// Your hash implementation
+    recordSz = parseData("input.txt", &pRecords);
+    printRecords(pRecords, recordSz);
+
+    // Your hash implementation
+    int hashSize = 15; // Set your desired hash table size
+    struct HashType hashTable;
+    hashTable.size = hashSize;
+    hashTable.array = (struct Node **)malloc(hashSize * sizeof(struct Node *));
+
+    // Initialize the hash table with NULL values
+    for (int i = 0; i < hashSize; i++)
+    {
+        hashTable.array[i] = NULL;
+    }
+
+    // Insert records into the hash table
+    for (int i = 0; i < recordSz; i++)
+    {
+        insert(&hashTable, pRecords[i]);
+    }
+
+    // Display records in the hash table
+    displayRecordsInHash(&hashTable);
+
+    // Free allocated memory for the hash table
+    for (int i = 0; i < hashSize; i++)
+    {
+        struct Node *current = hashTable.array[i];
+        while (current != NULL)
+        {
+            struct Node *temp = current;
+            current = current->next;
+            free(temp);
+        }
+    }
+    free(hashTable.array);
+
+    return 0;
 }
